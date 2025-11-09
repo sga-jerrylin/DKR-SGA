@@ -32,91 +32,336 @@ def _init_globals():
 
 # LangGraph 工具定义
 @tool
-def search_library_overview(query: str = "") -> str:
+def get_library_catalog(query: str = "") -> str:
     """
-    获取文档库概览（图书管理员视角）。
+    获取文档库的完整目录（所有分类 + 所有文档）。
 
-    这个工具会返回文档库的分类列表，每个分类下有多少份文档。
-    适用于：不确定要在哪个分类中搜索时使用。
+    这个工具会一次性返回：
+    1. 所有分类列表
+    2. 每个分类下的所有文档（文件名、页数、文档摘要）
+
+    适用于：快速浏览整个文档库，判断要查看哪些文档。
 
     Args:
         query: 用户的查询问题（可选，用于日志记录）
 
     Returns:
-        文档库的分类概览信息
+        完整的文档库目录（所有分类和文档）
     """
     _init_globals()
-    logger.info(f"[Tool] search_library_overview: {query}")
+    logger.info(f"[Tool] get_library_catalog: {query}")
 
-    # 获取分类摘要
-    summary = _library_manager.get_category_summary()
+    # 获取所有分类
+    categories = _library_manager.list_categories()
 
-    return summary
+    if not categories:
+        return "文档库为空，没有任何分类和文档"
 
+    result = "【文档库完整目录】\n\n"
+    result += f"共 {len(categories)} 个分类\n\n"
+    result += "=" * 80 + "\n\n"
 
-@tool
-def search_in_category(category: str, query: str = "") -> str:
-    """
-    查看特定分类中的所有文档列表（图书管理员视角）。
+    total_docs = 0
 
-    这个工具会返回该分类下所有文档的元信息，包括：
-    - 文件名
-    - 页数
-    - 文档摘要（大概内容）
+    for category in categories:
+        category_name = category.get('name', '未命名分类')
+        doc_count = category.get('doc_count', 0)
+        total_docs += doc_count
 
-    适用于：已知要在哪个分类中查找，需要了解该分类下有哪些文档时使用。
+        result += f"📁 分类：{category_name}（{doc_count} 份文档）\n"
+        result += f"{'-' * 80}\n"
 
-    Args:
-        category: 分类名称（如：财务类、制度类、简历、合同）
-        query: 用户的查询问题（可选，用于日志记录）
+        # 获取该分类下的所有文档
+        documents = _library_manager.list_documents(category=category_name)
 
-    Returns:
-        该分类下所有文档的详细列表
-    """
-    _init_globals()
-    logger.info(f"[Tool] search_in_category: category={category}, query={query}")
+        if documents:
+            for i, doc in enumerate(documents, 1):
+                metadata = doc.get('metadata', {})
 
-    documents = _library_manager.list_documents(category=category)
+                # 文件名
+                filename = metadata.get('filename', doc.get('title', doc['doc_id']))
 
-    if not documents:
-        return f"分类 '{category}' 中没有找到文档"
+                # 页数
+                page_count = metadata.get('page_count', '未知')
 
-    result = f"# 分类 '{category}' 中的文档列表\n\n"
-    result += f"共 {len(documents)} 份文档：\n\n"
+                # 文档摘要
+                doc_summary = metadata.get('doc_summary', '无摘要')
 
-    for i, doc in enumerate(documents, 1):
-        metadata = doc.get('metadata', {})
+                result += f"  {i}. {filename}\n"
+                result += f"     - 文档 ID: {doc['doc_id']}\n"
+                result += f"     - 页数: {page_count} 页\n"
+                result += f"     - 摘要: {doc_summary}\n"
+                result += f"\n"
+        else:
+            result += f"  （该分类下暂无文档）\n\n"
 
-        # 文件名
-        filename = metadata.get('filename', doc.get('title', doc['doc_id']))
+        result += "\n"
 
-        # 页数
-        page_count = metadata.get('page_count', '未知')
-
-        # 文档摘要
-        doc_summary = metadata.get('doc_summary', '无摘要')
-
-        result += f"{i}. **{filename}**\n"
-        result += f"   - 文档 ID: {doc['doc_id']}\n"
-        result += f"   - 页数: {page_count} 页\n"
-        result += f"   - 内容摘要: {doc_summary}\n"
-        result += f"\n"
-
-    result += "\n提示：选择一个文档后，可以使用 search_in_document_summary 或 search_in_document 进行深入检索。"
+    result += "=" * 80 + "\n"
+    result += f"【统计】共 {len(categories)} 个分类，{total_docs} 份文档\n\n"
+    result += "【下一步】请选择您想查看的文档（可以是 1 个或多个），我会返回这些文档的目录（所有页面的摘要）。\n"
 
     return result
 
 
 @tool
-def search_in_document(doc_id: str, query: str, page_nums: list = None, top_k: int = 5) -> str:
+def get_documents_table_of_contents(doc_ids: list, query: str = "") -> str:
     """
-    【Stage 2 工具】在特定文档中搜索答案（使用 DeepSeek OCR 实时理解文档内容）。
+    获取一个或多个文档的目录（所有页面的 page_summary）。
+
+    这个工具会返回指定文档的所有页面摘要，像翻阅目录一样快速了解文档结构。
+
+    工作流程：
+    1. 读取指定文档的 summaries.json
+    2. 提取所有页面的 page_summary
+    3. 返回简洁的目录格式
+
+    适用于：快速浏览文档内容，定位感兴趣的页面。
+
+    Args:
+        doc_ids: 文档 ID 列表（可以是 1 个或多个，例如 ["doc_xxx", "doc_yyy"]）
+        query: 用户的查询问题（可选，用于日志记录）
+
+    Returns:
+        文档目录（所有页面的 page_summary）
+    """
+    _init_globals()
+    logger.info(f"[Tool] get_documents_table_of_contents: doc_ids={doc_ids}, query={query}")
+
+    try:
+        import sys
+        import json
+        from pathlib import Path
+
+        # Add project root to path
+        project_root = Path(__file__).parent.parent.parent.parent
+        sys.path.insert(0, str(project_root))
+
+        from app.core.library_manager import LibraryManager
+
+        library_manager = LibraryManager()
+
+        result = "【文档目录】\n\n"
+
+        for doc_id in doc_ids:
+            # 获取文档信息
+            doc_info = library_manager.get_document(doc_id)
+            if not doc_info:
+                result += f"⚠️ 错误：文档 {doc_id} 不存在\n\n"
+                continue
+
+            metadata = doc_info.get("metadata", {})
+            filename = metadata.get("filename", doc_id)
+            page_count = metadata.get("page_count", 0)
+            summary_path = metadata.get("summary_path")
+
+            if not summary_path:
+                result += f"⚠️ 错误：文档 {doc_id} 缺少 Summary 文件\n\n"
+                continue
+
+            # 读取 Summary JSON
+            with open(summary_path, 'r', encoding='utf-8') as f:
+                summary_data = json.load(f)
+
+            # 检查格式
+            if not isinstance(summary_data, list):
+                result += f"⚠️ 错误：文档 {doc_id} 的 Summary 文件格式不正确\n\n"
+                continue
+
+            result += f"📄 文档：{filename}\n"
+            result += f"   文档 ID: {doc_id}\n"
+            result += f"   总页数: {page_count} 页\n"
+            result += f"{'-' * 80}\n"
+
+            # 提取所有页面的 page_summary
+            for page_data in summary_data:
+                page_num = page_data.get("page_num", "?")
+                page_summary = page_data.get("page_summary", "无摘要")
+
+                result += f"  第 {page_num} 页：{page_summary}\n"
+
+            result += f"\n"
+
+        result += "=" * 80 + "\n"
+        result += "【下一步】请选择您感兴趣的页面，我会返回这些页面的详细信息（包括实体、数据、表格等）。\n"
+
+        return result
+
+    except Exception as e:
+        logger.error(f"get_documents_table_of_contents error: {e}", exc_info=True)
+        return f"获取文档目录出错：{str(e)}"
+
+
+@tool
+def get_pages_full_summary(doc_id: str, page_nums: list) -> str:
+    """
+    获取指定页面的完整 Summary 信息。
+
+    这个工具会返回指定页面的详细 Summary，包括：
+    - page_summary（页面摘要）
+    - entities（关键实体）
+    - key_data（关键数据）
+    - table_info（表格信息）
+    - chart_info（图表信息）
+    - image_info（图像信息）
+
+    适用于：在目录中定位到感兴趣的页面后，查看详细信息。
+
+    Args:
+        doc_id: 文档 ID
+        page_nums: 页码列表（例如 [1, 3, 5, 61]）
+
+    Returns:
+        指定页面的完整 Summary 信息
+    """
+    _init_globals()
+    logger.info(f"[Tool] get_pages_full_summary: doc_id={doc_id}, page_nums={page_nums}")
+
+    try:
+        import sys
+        import json
+        from pathlib import Path
+
+        # Add project root to path
+        project_root = Path(__file__).parent.parent.parent.parent
+        sys.path.insert(0, str(project_root))
+
+        from app.core.library_manager import LibraryManager
+
+        library_manager = LibraryManager()
+
+        # 获取文档信息
+        doc_info = library_manager.get_document(doc_id)
+        if not doc_info:
+            return f"错误：文档 {doc_id} 不存在"
+
+        metadata = doc_info.get("metadata", {})
+        summary_path = metadata.get("summary_path")
+
+        if not summary_path:
+            return f"错误：文档 {doc_id} 缺少 Summary 文件"
+
+        # 读取 Summary JSON
+        with open(summary_path, 'r', encoding='utf-8') as f:
+            summary_data = json.load(f)
+
+        # 检查格式
+        if not isinstance(summary_data, list):
+            return f"错误：文档 {doc_id} 的 Summary 文件格式不正确"
+
+        result = f"【页面详细信息】\n"
+        result += f"文档: {doc_id}\n"
+        result += f"查看 {len(page_nums)} 个页面\n\n"
+        result += "=" * 80 + "\n\n"
+
+        for page_num in page_nums:
+            # 查找对应的页面数据（page_num 从 1 开始，索引从 0 开始）
+            page_data = None
+            for data in summary_data:
+                if data.get("page_num") == page_num:
+                    page_data = data
+                    break
+
+            if not page_data:
+                result += f"⚠️ 第 {page_num} 页：未找到 Summary 数据\n\n"
+                continue
+
+            result += f"【第 {page_num} 页】\n"
+            result += f"{'-' * 80}\n"
+
+            # 页面类型
+            page_type = page_data.get("page_type", "未知")
+            result += f"页面类型：{page_type}\n\n"
+
+            # 页面摘要
+            page_summary = page_data.get("page_summary", "无摘要")
+            result += f"页面摘要：\n{page_summary}\n\n"
+
+            # 关键实体
+            entities = page_data.get("entities", [])
+            if entities:
+                result += f"关键实体（{len(entities)} 个）：\n"
+                # 只显示前 20 个实体
+                display_entities = entities[:20]
+                result += f"{', '.join(display_entities)}\n"
+                if len(entities) > 20:
+                    result += f"...（还有 {len(entities) - 20} 个实体）\n"
+                result += f"\n"
+
+            # 关键数据
+            key_data = page_data.get("key_data", [])
+            if key_data:
+                result += f"关键数据：\n"
+                for data in key_data:
+                    key = data.get("key", "")
+                    value = data.get("value", "")
+                    result += f"  - {key}: {value}\n"
+                result += f"\n"
+
+            # 表格信息
+            table_info = page_data.get("table_info")
+            if table_info:
+                result += f"表格信息：\n"
+                title = table_info.get("title", "无标题")
+                result += f"  标题：{title}\n"
+
+                columns = table_info.get("columns", [])
+                if columns:
+                    result += f"  列名：{', '.join(columns)}\n"
+
+                rows_data = table_info.get("rows_data", "")
+                if rows_data:
+                    # 限制长度
+                    display_data = rows_data[:500]
+                    result += f"  数据：{display_data}\n"
+                    if len(rows_data) > 500:
+                        result += f"  ...（数据过长，已截断）\n"
+                result += f"\n"
+
+            # 图表信息
+            chart_info = page_data.get("chart_info")
+            if chart_info:
+                result += f"图表信息：\n"
+                chart_type = chart_info.get("type", "未知")
+                description = chart_info.get("description", "无描述")
+                result += f"  类型：{chart_type}\n"
+                result += f"  描述：{description}\n"
+                result += f"\n"
+
+            # 图像信息
+            image_info = page_data.get("image_info")
+            if image_info:
+                result += f"图像信息：\n"
+                description = image_info.get("description", "无描述")
+                result += f"  描述：{description}\n"
+
+                key_elements = image_info.get("key_elements", [])
+                if key_elements:
+                    result += f"  关键元素：{', '.join(key_elements)}\n"
+                result += f"\n"
+
+            result += f"{'-' * 80}\n\n"
+
+        result += "=" * 80 + "\n"
+        result += "【下一步】如果 Summary 信息足够，请直接生成答案。如果需要查看原文，请使用 search_in_document 进行全量 OCR。\n"
+
+        return result
+
+    except Exception as e:
+        logger.error(f"get_pages_full_summary error: {e}", exc_info=True)
+        return f"获取页面详细信息出错：{str(e)}"
+
+
+@tool
+def search_in_document(doc_id: str, page_nums: list, query: str = "") -> str:
+    """
+    【全量 OCR 工具】对指定页面进行全量 OCR（使用 DeepSeek OCR API）。
 
     ⚠️⚠️⚠️ 严重警告：这是成本极高、速度极慢的操作！
 
     ⚠️ 使用前提条件（必须满足）：
-    1. 必须先调用 search_in_document_summary 获取 Summary
-    2. 必须先尝试用 Summary 回答问题
+    1. 必须先调用 get_documents_table_of_contents 查看目录
+    2. 必须先调用 get_pages_full_summary 查看详细 Summary
     3. 必须确认 Summary 完全不足以回答问题
     4. 必须说明为什么 Summary 不足（记录决策理由）
 
@@ -128,24 +373,24 @@ def search_in_document(doc_id: str, query: str, page_nums: list = None, top_k: i
     - 需要精确的数字、公式、代码等
 
     工作流程：
-    1. 如果指定了 page_nums，只 OCR 这些页面（强烈推荐）
-    2. 如果未指定 page_nums，使用轻量级索引定位 top_k 个页面
-    3. 调用 DeepSeek OCR API 实时理解页面内容（耗时 3-5 秒/页）
-    4. 返回 OCR 结果
+    1. 对指定的页面进行全量 OCR（耗时 3-5 秒/页）
+    2. 返回 OCR 结果
 
     Args:
         doc_id: 文档 ID
-        query: 用户的查询问题
-        page_nums: 指定要 OCR 的页码列表（强烈推荐，例如 [1, 3, 5]）
-        top_k: 如果未指定 page_nums，返回最相关的页面数量（默认 5，最大 5）
+        page_nums: 要 OCR 的页码列表（例如 [1, 3, 5]，建议不超过 5 页）
+        query: 用户的查询问题（可选，用于日志记录）
 
     Returns:
-        从文档中检索到的答案和来源页面
+        全量 OCR 结果
     """
     _init_globals()
 
     # 安全检查
-    if page_nums and len(page_nums) > 5:
+    if not page_nums or len(page_nums) == 0:
+        return "错误：必须指定要 OCR 的页码列表（page_nums 参数）"
+
+    if len(page_nums) > 5:
         logger.warning(f"[Tool] ⚠️ 请求 OCR {len(page_nums)} 页，超过建议的 5 页限制")
         return (
             f"⚠️ 警告：您请求 OCR {len(page_nums)} 页，超过建议的 5 页限制。\n"
@@ -153,11 +398,7 @@ def search_in_document(doc_id: str, query: str, page_nums: list = None, top_k: i
             f"原因：全量 OCR 成本高、速度慢，应精准选择页面。"
         )
 
-    if top_k > 5:
-        logger.warning(f"[Tool] ⚠️ top_k={top_k} 超过限制，自动调整为 5")
-        top_k = 5
-
-    logger.info(f"[Tool] search_in_document: doc_id={doc_id}, query={query}, page_nums={page_nums}, top_k={top_k}")
+    logger.info(f"[Tool] search_in_document: doc_id={doc_id}, page_nums={page_nums}, query={query}")
     logger.info(f"[Tool] 将调用 DeepSeek OCR API 进行实时文档理解")
 
     try:
@@ -199,59 +440,45 @@ def search_in_document(doc_id: str, query: str, page_nums: list = None, top_k: i
             enable_cache=True
         )
 
-        # 执行检索
-        if page_nums:
-            # 精准 OCR：只处理指定的页面
-            logger.info(f"[Tool] 精准 OCR 模式：处理指定的 {len(page_nums)} 页: {page_nums}")
-            results = []
-            for page_num in page_nums:
-                try:
-                    # 提取帧并 OCR（页码从 1 开始，frame_num 从 0 开始）
-                    frame_num = page_num - 1
-                    frame = visual_retriever._extract_frame(frame_num)
-                    if frame is not None:
-                        ocr_result = ocr_client.ocr_image(frame)
+        # 精准 OCR：只处理指定的页面
+        logger.info(f"[Tool] 精准 OCR 模式：处理指定的 {len(page_nums)} 页: {page_nums}")
+        results = []
+        for page_num in page_nums:
+            try:
+                # 提取帧并 OCR（页码从 1 开始，frame_num 从 0 开始）
+                frame_num = page_num - 1
+                frame = visual_retriever._extract_frame(frame_num)
+                if frame is not None:
+                    ocr_result = ocr_client.ocr_image(frame)
 
-                        # 检查 OCR 结果是否为 None
-                        if ocr_result is None:
-                            logger.warning(f"[Tool] ⚠️ 第 {page_num} 页 OCR 返回 None")
-                            continue
+                    # 检查 OCR 结果是否为 None
+                    if ocr_result is None:
+                        logger.warning(f"[Tool] ⚠️ 第 {page_num} 页 OCR 返回 None")
+                        continue
 
-                        if ocr_result.get("success"):
-                            content = ocr_result.get("text", "")
-                            results.append({
-                                "page_num": page_num,
-                                "frame_num": frame_num,
-                                "content": content,
-                                "page_type": "OCR"
-                            })
-                            logger.info(f"[Tool] ✅ 第 {page_num} 页 OCR 成功，内容长度: {len(content)}")
-                        else:
-                            error_msg = ocr_result.get("error", "未知错误")
-                            logger.warning(f"[Tool] ⚠️ 第 {page_num} 页 OCR 失败: {error_msg}")
+                    if ocr_result.get("success"):
+                        content = ocr_result.get("text", "")
+                        results.append({
+                            "page_num": page_num,
+                            "frame_num": frame_num,
+                            "content": content,
+                            "page_type": "OCR"
+                        })
+                        logger.info(f"[Tool] ✅ 第 {page_num} 页 OCR 成功，内容长度: {len(content)}")
                     else:
-                        logger.warning(f"[Tool] ⚠️ 第 {page_num} 页帧提取失败")
-                except Exception as e:
-                    logger.error(f"[Tool] ❌ 第 {page_num} 页处理出错: {e}", exc_info=True)
-        else:
-            # 自动检索模式：使用轻量级索引定位页面
-            logger.info(f"[Tool] 自动检索模式：使用索引定位 top-{top_k} 页面")
-            results = visual_retriever.search(
-                query=query,
-                top_k=top_k,
-                context_window=1
-            )
+                        error_msg = ocr_result.get("error", "未知错误")
+                        logger.warning(f"[Tool] ⚠️ 第 {page_num} 页 OCR 失败: {error_msg}")
+                else:
+                    logger.warning(f"[Tool] ⚠️ 第 {page_num} 页帧提取失败")
+            except Exception as e:
+                logger.error(f"[Tool] ❌ 第 {page_num} 页处理出错: {e}", exc_info=True)
 
         if results:
             logger.info(f"[Tool] DeepSeek OCR 成功处理 {len(results)} 个页面")
 
             response = f"【全量 OCR 结果】\n"
             response += f"文档: {doc_id}\n"
-            response += f"处理了 {len(results)} 个页面\n"
-            if page_nums:
-                response += f"模式: 精准 OCR（指定页码: {page_nums}）\n\n"
-            else:
-                response += f"模式: 自动检索（Top-{top_k}）\n\n"
+            response += f"处理了 {len(results)} 个页面（指定页码: {page_nums}）\n\n"
             response += "=" * 80 + "\n\n"
 
             for i, page_result in enumerate(results, 1):
@@ -265,7 +492,7 @@ def search_in_document(doc_id: str, query: str, page_nums: list = None, top_k: i
 
             return response
         else:
-            return f"在文档 {doc_id} 中未找到与查询相关的内容"
+            return f"OCR 失败：未能成功处理任何页面"
 
     except Exception as e:
         logger.error(f"search_in_document error: {e}", exc_info=True)
@@ -303,257 +530,8 @@ def evaluate_answer_confidence(query: str, answer: str) -> str:
         return f"评估出错：{str(e)}"
 
 
-@tool
-def search_in_document_summary(doc_id: str, query: str, top_k: int = 5) -> str:
-    """
-    在文档的 Summary 中快速检索（不进行全量 OCR）。
-    适用于：快速了解文档内容，判断是否需要深入 OCR。
-
-    工作流程：
-    1. 使用轻量级索引定位最相关的页面
-    2. 读取这些页面的 Summary（从 JSON 文件）
-    3. 返回 Summary 内容，不进行 OCR
-    4. 如果 Summary 不足以回答问题，建议使用 search_in_document
-
-    Args:
-        doc_id: 文档 ID
-        query: 用户查询问题
-        top_k: 返回最相关的页面数量（默认 5）
-
-    Returns:
-        相关页面的 Summary 内容
-    """
-    _init_globals()
-    logger.info(f"[Tool] search_in_document_summary: doc_id={doc_id}, query={query}, top_k={top_k}")
-
-    try:
-        import sys
-        import json
-        from pathlib import Path
-
-        # Add project root to path
-        project_root = Path(__file__).parent.parent.parent.parent
-        sys.path.insert(0, str(project_root))
-
-        from visual_memvid.bm25s_index import BM25SIndex
-        from app.config import get_settings
-        from app.core.library_manager import LibraryManager
-
-        settings = get_settings()
-        library_manager = LibraryManager()
-
-        # 获取文档信息
-        doc_info = library_manager.get_document(doc_id)
-        if not doc_info:
-            return f"错误：文档 {doc_id} 不存在"
-
-        metadata = doc_info.get("metadata", {})
-        index_path = metadata.get("index_path")
-        summary_path = metadata.get("summary_path")
-
-        if not index_path or not summary_path:
-            return f"错误：文档 {doc_id} 缺少索引或 Summary 文件"
-
-        # 加载 BM25S 索引（使用 mmap 节省内存）
-        index = BM25SIndex.load(index_path, mmap=True)
-
-        # 使用索引定位相关页面（返回包含分数和相关性等级的列表）
-        search_results = index.search(query, top_k)
-
-        if not search_results:
-            return f"在文档 {doc_id} 的 Summary 中未找到与查询相关的内容"
-
-        logger.info(f"[Tool] 定位到 {len(search_results)} 个相关页面")
-
-        # 读取 Summary JSON
-        with open(summary_path, 'r', encoding='utf-8') as f:
-            summary_data = json.load(f)
-
-        # 处理两种可能的格式
-        if isinstance(summary_data, list):
-            # 新格式：[{"doc_id": "...", "page_num": 1, "summary": "...", ...}, ...]
-            pass
-        elif isinstance(summary_data, dict):
-            # 旧格式：{"page_summaries": ["summary1", "summary2", ...]}
-            return f"错误：Summary 文件格式已过时，请重新生成文档"
-        else:
-            return f"错误：Summary 文件格式不正确"
-
-        # 统计相关性等级
-        high_relevance = [r for r in search_results if r["relevance_level"] == "高"]
-        mid_relevance = [r for r in search_results if r["relevance_level"] == "中"]
-        low_relevance = [r for r in search_results if r["relevance_level"] == "低"]
-
-        # 提取相关页面的完整 Summary（包括所有字段）
-        result = f"【Summary 检索结果】\n"
-        result += f"文档: {doc_id}\n"
-        result += f"找到 {len(search_results)} 个相关页面\n"
-        result += f"相关性分布: 高 {len(high_relevance)} 页 | 中 {len(mid_relevance)} 页 | 低 {len(low_relevance)} 页\n\n"
-        result += "=" * 80 + "\n\n"
-
-        for search_item in search_results:
-            frame_num = search_item["frame_num"]
-            page_num = search_item["page_num"]
-            score = search_item["score"]
-            score_ratio = search_item["score_ratio"]
-            relevance_level = search_item["relevance_level"]
-            rank = search_item["rank"]
-
-            if frame_num < len(summary_data):
-                page_data = summary_data[frame_num]
-                summary_content = page_data.get("summary", "")
-
-                result += f"【排名 {rank}】第 {page_num} 页 | BM25S 得分: {score:.2f} ({score_ratio:.0%}) | 相关性: {relevance_level}\n"
-                result += f"{'-' * 80}\n"
-                result += f"{summary_content}\n"
-                result += f"{'-' * 80}\n\n"
-
-        result += "=" * 80 + "\n"
-        result += "【下一步行动指引 - 渐进式精准检索】\n\n"
-        result += "⚠️ Stage 1.5: Summary 批量分析\n"
-        result += "   1. 仔细阅读上述所有 Summary 内容\n"
-        result += "   2. 评估每页的相关性（已标注：高/中/低）\n"
-        result += "   3. 判断 Summary 是否足够回答问题\n\n"
-
-        result += "⚠️ 决策分支：\n"
-        result += "   【分支 A】Summary 足够 → 直接基于 Summary 生成答案，标注'基于 Summary'\n"
-        result += "   【分支 B】Summary 不足 → 进入 Stage 2（精准 OCR）\n\n"
-
-        result += "⚠️ Stage 2: 精准 OCR（仅在 Summary 不足时执行）\n"
-        result += "   1. 从上述页面中选择 3-5 页最相关的（优先选择'高'相关性的页面）\n"
-        result += "   2. 调用 search_in_document，指定 page_nums 参数\n"
-        result += f"   3. 示例: search_in_document(doc_id='{doc_id}', query='{query}', page_nums=[{', '.join(str(r['page_num']) for r in high_relevance[:3])}])\n\n"
-
-        result += "⚠️ 禁止事项：\n"
-        result += "   ❌ 禁止未尝试用 Summary 回答就直接调用 search_in_document\n"
-        result += "   ❌ 禁止对所有 10 页都做全量 OCR（成本高、速度慢）\n"
-        result += "   ❌ 禁止选择超过 5 页进行 OCR\n"
-
-        return result
-
-    except Exception as e:
-        logger.error(f"search_in_document_summary error: {e}", exc_info=True)
-        return f"搜索 Summary 出错：{str(e)}"
-
-
-@tool
-def get_full_document_content(doc_id: str, query: str) -> str:
-    """
-    获取小文档的完整内容（适用于 <= 15 页的文档）。
-
-    适用场景：
-    - 合同、简历、报告等连续性强的文档
-    - 需要整体理解，片段检索意义不大
-    - 文档页数较少（<= 15 页）
-
-    工作流程：
-    1. 检查文档页数
-    2. 如果 <= 15 页，一次性 OCR 所有页面
-    3. 使用 LLM 基于完整内容生成答案
-    4. 如果 > 15 页，建议使用 search_in_document
-
-    Args:
-        doc_id: 文档 ID
-        query: 用户查询问题
-
-    Returns:
-        基于完整文档内容的答案
-    """
-    _init_globals()
-    logger.info(f"[Tool] get_full_document_content: doc_id={doc_id}, query={query}")
-
-    try:
-        import sys
-        from pathlib import Path
-
-        # Add project root to path
-        project_root = Path(__file__).parent.parent.parent.parent
-        sys.path.insert(0, str(project_root))
-
-        from visual_memvid.visual_retriever import VisualMemvidRetriever
-        from visual_memvid.ocr_client import DeepSeekOCRClient
-        from app.config import get_settings
-        from app.core.library_manager import LibraryManager
-
-        settings = get_settings()
-        library_manager = LibraryManager()
-
-        # 获取文档信息
-        doc_info = library_manager.get_document(doc_id)
-        if not doc_info:
-            return f"错误：文档 {doc_id} 不存在"
-
-        metadata = doc_info.get("metadata", {})
-        total_pages = metadata.get("page_count", 0)
-
-        # 检查页数限制
-        if total_pages > 15:
-            return (
-                f"文档 {doc_id} 共 {total_pages} 页，超过 15 页限制。\n"
-                f"建议使用 search_in_document 工具进行片段检索。"
-            )
-
-        logger.info(f"[Tool] 文档共 {total_pages} 页，开始全量 OCR...")
-
-        video_path = metadata.get("video_path")
-        index_path = metadata.get("index_path")
-
-        if not video_path or not index_path:
-            return f"错误：文档 {doc_id} 缺少视频或索引文件"
-
-        # 初始化 OCR 客户端
-        ocr_client = DeepSeekOCRClient(endpoint=settings.ocr_api_url)
-
-        visual_retriever = VisualMemvidRetriever(
-            video_path=video_path,
-            index_path=index_path,
-            ocr_client=ocr_client,
-            enable_cache=True
-        )
-
-        # 一次性 OCR 所有页面（使用批量 OCR）
-        all_pages_content = []
-        for page_num in range(total_pages):
-            # 提取帧并 OCR
-            frame = visual_retriever._extract_frame(page_num)
-            if frame is not None:
-                ocr_result = ocr_client.ocr_image(frame)
-                if ocr_result.get("success"):
-                    content = ocr_result.get("content", "")
-                    all_pages_content.append(f"=== 第 {page_num + 1} 页 ===\n{content}")
-
-        if not all_pages_content:
-            return f"错误：无法提取文档 {doc_id} 的内容"
-
-        # 合并所有页面内容
-        full_content = "\n\n".join(all_pages_content)
-
-        logger.info(f"[Tool] 全量 OCR 完成，共 {len(all_pages_content)} 页")
-
-        # 使用 LLM 基于完整内容生成答案
-        answer_prompt = f"""基于以下文档的完整内容，回答用户的问题。
-
-用户问题：{query}
-
-文档完整内容：
-{full_content[:8000]}  # 限制长度避免超出 token 限制
-
-请提供准确、详细的答案。"""
-
-        answer_result = _llm_client.chat(
-            messages=[{"role": "user", "content": answer_prompt}],
-            temperature=0.3
-        )
-
-        if answer_result.get("success"):
-            answer = answer_result.get("content", "")
-            return f"基于文档 {doc_id} 的完整内容（共 {total_pages} 页）：\n\n{answer}"
-        else:
-            return f"错误：生成答案失败 - {answer_result.get('error')}"
-
-    except Exception as e:
-        logger.error(f"get_full_document_content error: {e}", exc_info=True)
-        return f"获取文档内容出错：{str(e)}"
+# 旧工具已删除：search_in_document_summary（被 get_documents_table_of_contents + get_pages_full_summary 替代）
+# 旧工具已删除：get_full_document_content（不再需要）
 
 
 class DKRAgent:
@@ -592,14 +570,13 @@ class DKRAgent:
                 temperature=0.3
             )
 
-        # 定义工具列表
+        # 定义工具列表（新版本：5个工具）
         self.tools = [
-            search_library_overview,
-            search_in_category,
-            search_in_document_summary,
-            search_in_document,
-            get_full_document_content,
-            evaluate_answer_confidence
+            get_library_catalog,                # 工具1: 获取文档库完整目录
+            get_documents_table_of_contents,    # 工具2: 获取文档目录（所有 page_summary）
+            get_pages_full_summary,             # 工具3: 获取页面详细信息
+            search_in_document,                 # 工具4: 全量 OCR
+            evaluate_answer_confidence          # 工具5: 评估答案置信度
         ]
 
         # 创建 Agent（带状态持久化）
