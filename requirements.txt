@@ -1,0 +1,23 @@
+# Core dependencies
+pymupdf>=1.23.0  # PDF rendering
+opencv-python>=4.8.0  # Video processing
+numpy>=1.24.0
+pillow>=10.0.0
+
+# HTTP client for DeepSeek OCR
+requests>=2.31.0
+
+# Doris 4.0 client
+pymysql>=1.1.0
+
+# Video encoding (复用 Memvid)
+ffmpeg-python>=0.2.0
+
+# Utilities
+tqdm>=4.66.0
+python-dotenv>=1.0.0
+
+# Optional: LLM for smart retrieval
+openai>=1.0.0  # For GPT-4 or DeepSeek API
+anthropic>=0.7.0  # For Claude (optional)
+

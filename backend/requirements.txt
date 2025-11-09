@@ -1,0 +1,61 @@
+# Web Framework
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+python-multipart==0.0.6
+
+# CORS
+fastapi-cors==0.0.6
+
+# Environment Variables
+python-dotenv==1.0.0
+
+# HTTP Client
+httpx==0.26.0
+requests==2.31.0
+
+# LLM & Agent Framework
+openai==1.10.0
+langgraph==0.2.50
+langchain==0.3.10
+langchain-openai==0.2.10
+langchain-core==0.3.20
+
+# Data Validation
+# pydantic==2.5.3  # 使用已安装的 2.11.7
+# pydantic-settings==2.1.0  # 使用已安装的 2.6.1
+
+# JSON Processing
+# orjson==3.9.12  # 编译太慢，暂时禁用
+
+# Date/Time
+python-dateutil==2.8.2
+
+# File Processing
+aiofiles==23.2.1
+
+# WebSocket
+websockets==12.0
+
+# Logging
+loguru==0.7.2
+
+# Video Processing (from existing project)
+# opencv-python==4.9.0.80  # 已通过 memvid 安装
+# numpy==1.26.3  # 已通过 memvid 安装
+
+# PDF Processing (from existing project)
+# PyMuPDF==1.23.8  # 编译需要 Visual Studio，使用已安装的 1.26.4
+
+# Caching
+diskcache==5.6.3
+
+# Testing
+pytest==7.4.4
+pytest-asyncio==0.23.3
+httpx==0.26.0
+
+# Code Quality
+black==24.1.1
+flake8==7.0.0
+mypy==1.8.0
+

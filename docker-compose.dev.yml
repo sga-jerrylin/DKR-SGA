@@ -1,0 +1,47 @@
+# Development docker-compose with hot reload
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: dkr-backend-dev
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - ./data:/app/data
+      - ./ocr_cache:/app/ocr_cache
+      - ./logs:/app/logs
+      - ./visual_memvid:/app/visual_memvid
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - BACKEND_RELOAD=true
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    restart: unless-stopped
+    networks:
+      - dkr-network
+
+  frontend:
+    image: node:18-alpine
+    container_name: dkr-frontend-dev
+    working_dir: /app
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - dkr-network
+
+networks:
+  dkr-network:
+    driver: bridge
+

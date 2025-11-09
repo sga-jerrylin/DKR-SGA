@@ -1,0 +1,9 @@
+文档标题: {title}
+
+前几页内容摘要:
+{first_pages_summary}
+
+可选分类: {categories}
+
+请分类此文档。
+
