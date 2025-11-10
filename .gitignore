@@ -55,7 +55,10 @@ Thumbs.db
 logs/
 *.log
 
-# Data
+# Data - Sensitive documents and summaries
+*.pdf
+backend/data/documents/*.pdf
+backend/data/summaries/*/summaries.json
 data/videos/*.mp4
 data/summaries/*.json
 ocr_cache/
