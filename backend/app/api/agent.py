@@ -1,8 +1,7 @@
 """
 外部 Agent API - 供其他 Agent 调用
 """
-from typing import Dict, Any, Optional
-from fastapi import APIRouter, HTTPException, Header
+from fastapi import APIRouter, HTTPException
 from loguru import logger
 
 from app.agent.dkr_agent import DKRAgent
@@ -16,38 +15,34 @@ library_manager = LibraryManager()
 
 
 @router.post("/ask")
-async def agent_ask(
-    query: str,
-    options: Optional[Dict[str, Any]] = None,
-    x_api_key: Optional[str] = Header(None)
-):
+async def agent_ask(query: str):
     """
-    Agent 查询接口（供外部 Agent 调用）
-    
+    Agent 查询接口（供外部 Agent 调用，无状态）
+
     Args:
         query: 自然语言查询
-        options: 可选参数（如 thread_id）
-        x_api_key: API Key（可选，用于鉴权）
-    
+
     Returns:
         查询结果
     """
     try:
         logger.info(f"[External Agent] 收到查询: {query}")
-        
-        # TODO: API Key 验证（如果需要）
-        # if x_api_key != expected_key:
-        #     raise HTTPException(status_code=401, detail="Invalid API Key")
-        
-        thread_id = options.get("thread_id", "default") if options else "default"
-        
-        result = await agent.ask(query=query, thread_id=thread_id)
-        
-        if not result["success"]:
-            raise HTTPException(status_code=500, detail=result.get("error"))
-        
+
+        result = await agent.ask(query=query)
+
+        # 安全检查 result 是否为字典
+        if not isinstance(result, dict):
+            logger.error(f"Agent 返回了非字典类型: {type(result)}")
+            raise HTTPException(status_code=500, detail="Agent 返回格式错误")
+
+        # 检查是否成功
+        if not result.get("success", False):
+            error_msg = result.get("error", "未知错误")
+            logger.error(f"Agent 执行失败: {error_msg}")
+            raise HTTPException(status_code=500, detail=error_msg)
+
         return result
-    
+
     except HTTPException:
         raise
     except Exception as e:

@@ -4,47 +4,29 @@
     "其他": {
       "name": "其他",
       "documents": {
-        "doc_20251109_210828_dc55d5bb": {
-          "doc_id": "doc_20251109_210828_dc55d5bb",
+        "doc_20251109_233350_651c2da4": {
+          "doc_id": "doc_20251109_233350_651c2da4",
           "title": "2022中国环保公益组织现状调研报告",
-          "category_confidence": 0.6,
+          "category_confidence": 0.3,
           "metadata": {
             "filename": "2022中国环保公益组织现状调研报告.pdf",
-            "file_path": "data\\documents\\doc_20251109_210828_dc55d5bb.pdf",
-            "video_path": "data\\videos\\doc_20251109_210828_dc55d5bb.mp4",
-            "summary_path": "data\\summaries\\doc_20251109_210828_dc55d5bb\\summaries.json",
-            "index_path": "data\\indexes\\doc_20251109_210828_dc55d5bb_index",
+            "file_path": "data\\documents\\doc_20251109_233350_651c2da4.pdf",
+            "video_path": "data\\videos\\doc_20251109_233350_651c2da4.mp4",
+            "summary_path": "data\\summaries\\doc_20251109_233350_651c2da4\\summaries.json",
+            "index_path": "data\\indexes\\doc_20251109_233350_651c2da4_index",
             "page_count": 81,
-            "doc_summary": "页面类型: 表格\n\n页面摘要:\n这是一个2022年报告或年报的页面，内容主要为一个结构化列表或表格，列出多个编号项目及其对应数值。页面标题为'2022年某年报或报告'或类似，包含多项经营或财务指标，如2.1某项目对应4、2.2某项目对应6、2.3某项目对应12等，直至6某项目(2022)对应60。整体描述报告的年度经营情况或数据汇总，页脚显示'1/80'，表示这是多页文档的第一页。表格项目编号从2开始，逐步到6，数值从4递增至60，涉及描述如'某项目'、'某描述'等，可能为财务、经营或统计指标。\n\n关键词: 2022年, 年报, 报告, 经营情况, 2.1, 2.2, 2.3, 3.2, 3.4, 4, 6, 12, 20, 29, 37, 40, 45, 50, 55, 60, 2022, 1/80\n\n关键实体: 2022年报告, 年报, 经营项目\n\n关键数据:\n  - 2.1 项目: 4\n  - 2.2 项目: 6\n  - 2.3 项目: 12\n  - 3.2 项目: 20\n  - 3.4 项目: 29\n  - 3.4 项目: 37\n  - 4 项目: 40\n  - 4 项目: 4...",
+            "doc_summary": "\n\n\n\n",
             "keywords": [],
-            "upload_time": "2025-11-09T21:24:16.276709"
+            "upload_time": "2025-11-09T23:49:51.134612"
           },
-          "created_at": "2025-11-09T21:24:16.276946",
-          "updated_at": "2025-11-09T21:24:16.276951"
-        },
-        "doc_20251109_213133_65de6278": {
-          "doc_id": "doc_20251109_213133_65de6278",
-          "title": "2022中国环保公益组织现状调研报告",
-          "category_confidence": 0.7,
-          "metadata": {
-            "filename": "2022中国环保公益组织现状调研报告.pdf",
-            "file_path": "data\\documents\\doc_20251109_213133_65de6278.pdf",
-            "video_path": "data\\videos\\doc_20251109_213133_65de6278.mp4",
-            "summary_path": "data\\summaries\\doc_20251109_213133_65de6278\\summaries.json",
-            "index_path": "data\\indexes\\doc_20251109_213133_65de6278_index",
-            "page_count": 81,
-            "doc_summary": "页面类型: 文本\n\n页面摘要:\n该页是《2022年中国环保公益组织现状调研报告》的封面页，明确了报告的年份、主题和主要支持/发布机构，包括北京市企业家环保基金会（SEE）、万科公益基金会（VANKE FOUNDATION）和明善道（CCIA）。\n\n关键词: 2022, 中国环保公益组织现状调研报告, 环保, 公益组织, 调研报告, SEE, 北京市企业家环保基金会, 万科公益基金会, VANKE FOUNDATION, 明善道, CCIA\n\n关键实体: 中国环保公益组织, 北京市企业家环保基金会, SEE, 万科公益基金会, VANKE FOUNDATION, 明善道, CCIA\n\n关键数据:\n  - 年份: 2022\n\n图像信息:\n  描述: 封面设计以绿色为主色调，上半部分为渐变的绿色波浪和线条，下半部分隐约可见深绿色的城市天际线剪影和蝴蝶轮廓。中央有白色大字体标注的年份“2022”，下方是报告标题“中国环保公益组织现状调研报告”。底部列出了三个支持机构的标志和名称。\n  关键元素: 2022年, 报告标题, 绿色背景, 城市剪影, 蝴蝶图案, SEE标志, 万科公益基金会标志, ...",
-            "keywords": [],
-            "upload_time": "2025-11-09T21:51:53.836260"
-          },
-          "created_at": "2025-11-09T21:51:53.837086",
-          "updated_at": "2025-11-09T21:51:53.837104"
+          "created_at": "2025-11-09T23:49:51.134857",
+          "updated_at": "2025-11-09T23:49:51.134861"
         }
       },
-      "document_count": 2
+      "document_count": 1
     }
   },
-  "total_documents": 2,
-  "created_at": "2025-11-09T21:07:56.535080",
-  "updated_at": "2025-11-09T21:51:53.837137"
+  "total_documents": 1,
+  "created_at": "2025-11-09T23:30:22.332332",
+  "updated_at": "2025-11-09T23:49:51.134869"
 }

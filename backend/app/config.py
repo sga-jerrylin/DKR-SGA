@@ -20,15 +20,15 @@ class Settings(BaseSettings):
     deepseek_model: str = "deepseek-chat"
 
     # OpenRouter API (for Gemini and other models)
-    openrouter_api_key: str = "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"
+    openrouter_api_key: str = ""  # Set in .env file
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
 
     # Agent LLM Configuration
-    agent_llm_provider: str = "gemini"  # "deepseek" or "gemini"
+    agent_llm_provider: str = "deepseek"  # "deepseek" or "gemini"
     agent_llm_model: str = "google/gemini-2.5-flash-preview-09-2025"  # Gemini model via OpenRouter
 
     # DeepSeek OCR API
-    ocr_api_url: str = "http://111.230.37.43:5010"
+    ocr_api_url: str = ""  # Set in .env file
     ocr_timeout: int = 300
 
     # Application

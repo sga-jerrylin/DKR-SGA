@@ -6,7 +6,6 @@ from datetime import datetime
 from loguru import logger
 
 from langgraph.prebuilt import create_react_agent
-from langgraph.checkpoint.memory import MemorySaver
 from langchain_openai import ChatOpenAI
 from langchain_core.tools import tool
 from langchain_core.messages import HumanMessage
@@ -52,7 +51,7 @@ def get_library_catalog(query: str = "") -> str:
     logger.info(f"[Tool] get_library_catalog: {query}")
 
     # 获取所有分类
-    categories = _library_manager.list_categories()
+    categories = _library_manager.get_categories()
 
     if not categories:
         return "文档库为空，没有任何分类和文档"
@@ -65,7 +64,7 @@ def get_library_catalog(query: str = "") -> str:
 
     for category in categories:
         category_name = category.get('name', '未命名分类')
-        doc_count = category.get('doc_count', 0)
+        doc_count = category.get('document_count', 0)
         total_docs += doc_count
 
         result += f"📁 分类：{category_name}（{doc_count} 份文档）\n"
@@ -255,18 +254,28 @@ def get_pages_full_summary(doc_id: str, page_nums: list) -> str:
         result += "=" * 80 + "\n\n"
 
         for page_num in page_nums:
-            # 查找对应的页面数据（page_num 从 1 开始，索引从 0 开始）
+            # 转换为整数（LangGraph 可能传入字符串或整数）
+            try:
+                if isinstance(page_num, int):
+                    page_num_int = page_num
+                else:
+                    page_num_int = int(page_num)
+            except (ValueError, TypeError):
+                result += f"⚠️ 第 {page_num} 页：页码格式错误\n\n"
+                continue
+
+            # 查找对应的页面数据
             page_data = None
             for data in summary_data:
-                if data.get("page_num") == page_num:
+                if data.get("page_num") == page_num_int:
                     page_data = data
                     break
 
             if not page_data:
-                result += f"⚠️ 第 {page_num} 页：未找到 Summary 数据\n\n"
+                result += f"⚠️ 第 {page_num_int} 页：未找到 Summary 数据\n\n"
                 continue
 
-            result += f"【第 {page_num} 页】\n"
+            result += f"【第 {page_num_int} 页】\n"
             result += f"{'-' * 80}\n"
 
             # 页面类型
@@ -322,10 +331,19 @@ def get_pages_full_summary(doc_id: str, page_nums: list) -> str:
             chart_info = page_data.get("chart_info")
             if chart_info:
                 result += f"图表信息：\n"
-                chart_type = chart_info.get("type", "未知")
-                description = chart_info.get("description", "无描述")
-                result += f"  类型：{chart_type}\n"
-                result += f"  描述：{description}\n"
+                # chart_info 可能是字典或列表
+                if isinstance(chart_info, list):
+                    for idx, chart in enumerate(chart_info, 1):
+                        chart_type = chart.get("type", "未知") if isinstance(chart, dict) else "未知"
+                        description = chart.get("description", "无描述") if isinstance(chart, dict) else "无描述"
+                        result += f"  图表 {idx}：\n"
+                        result += f"    类型：{chart_type}\n"
+                        result += f"    描述：{description}\n"
+                else:
+                    chart_type = chart_info.get("type", "未知")
+                    description = chart_info.get("description", "无描述")
+                    result += f"  类型：{chart_type}\n"
+                    result += f"  描述：{description}\n"
                 result += f"\n"
 
             # 图像信息
@@ -348,7 +366,8 @@ def get_pages_full_summary(doc_id: str, page_nums: list) -> str:
         return result
 
     except Exception as e:
-        logger.error(f"get_pages_full_summary error: {e}", exc_info=True)
+        logger.error(f"get_pages_full_summary error: {e}")
+        logger.error(f"Error details:", exc_info=True)
         return f"获取页面详细信息出错：{str(e)}"
 
 
@@ -563,6 +582,8 @@ class DKRAgent:
             )
         else:
             logger.info(f"使用 DeepSeek 模型: {self.settings.deepseek_model}")
+            logger.info(f"DeepSeek API Key: {self.settings.deepseek_api_key[:20]}..." if self.settings.deepseek_api_key else "DeepSeek API Key: (空)")
+            logger.info(f"DeepSeek Base URL: {self.settings.deepseek_base_url}")
             self.llm = ChatOpenAI(
                 base_url=self.settings.deepseek_base_url,
                 api_key=self.settings.deepseek_api_key,
@@ -579,13 +600,12 @@ class DKRAgent:
             evaluate_answer_confidence          # 工具5: 评估答案置信度
         ]
 
-        # 创建 Agent（带状态持久化）
-        self.memory = MemorySaver()
+        # 创建 Agent（无状态，每次独立问答）
         self.agent = create_react_agent(
             self.llm,
             self.tools,
-            state_modifier=self._get_system_prompt(),
-            checkpointer=self.memory
+            state_modifier=self._get_system_prompt()
+            # 不使用 checkpointer，每次都是独立问答
         )
 
         logger.info("DKRAgent initialized with LangGraph")
@@ -615,15 +635,13 @@ class DKRAgent:
     
     async def ask(
         self,
-        query: str,
-        thread_id: str = "default"
+        query: str
     ) -> Dict[str, Any]:
         """
-        处理用户查询（LangGraph Agent 自主循环）
+        处理用户查询（LangGraph Agent 自主循环，无状态）
 
         Args:
             query: 用户查询
-            thread_id: 会话线程 ID（用于状态持久化）
 
         Returns:
             查询结果
@@ -632,9 +650,8 @@ class DKRAgent:
         logger.info(f"Agent 开始处理查询: {query}")
 
         try:
-            # 配置会话状态和递归限制
+            # 配置递归限制（无状态，每次独立问答）
             config = {
-                "configurable": {"thread_id": thread_id},
                 "recursion_limit": 50  # 增加递归限制到 50（默认 25）
             }
 
@@ -642,7 +659,6 @@ class DKRAgent:
             logger.info("=" * 80)
             logger.info(f"【Agent 开始执行】")
             logger.info(f"查询: {query}")
-            logger.info(f"Thread ID: {thread_id}")
             logger.info("=" * 80)
 
             result = await self.agent.ainvoke(
@@ -650,7 +666,19 @@ class DKRAgent:
                 config=config
             )
 
+            # 调试：打印 result 的类型和内容
+            logger.debug(f"Agent ainvoke 返回类型: {type(result)}")
+            logger.debug(f"Agent ainvoke 返回内容: {result}")
+
             # 提取最终答案
+            if not isinstance(result, dict):
+                logger.error(f"Agent 返回了非字典类型: {type(result)}, 内容: {result}")
+                return self._create_response(
+                    success=False,
+                    error=f"Agent 返回格式错误: {type(result)}",
+                    processing_time=(datetime.now() - start_time).total_seconds()
+                )
+
             messages = result.get("messages", [])
             if not messages:
                 return self._create_response(
@@ -719,11 +747,12 @@ class DKRAgent:
             )
 
         except Exception as e:
-            logger.error(f"Agent 处理失败: {e}", exc_info=True)
+            error_msg = str(e)
+            logger.error(f"Agent 处理失败: {error_msg}", exc_info=True)
             processing_time = (datetime.now() - start_time).total_seconds()
             return self._create_response(
                 success=False,
-                error=str(e),
+                error=error_msg,
                 processing_time=processing_time
             )
     

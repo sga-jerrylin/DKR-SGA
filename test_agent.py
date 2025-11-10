@@ -16,7 +16,7 @@ if sys.platform == 'win32':
 API_URL = "http://localhost:8000/agent/ask"
 
 # 测试查询
-query = "深挖 北京的组织机构 2022年的情况"
+query = "福建的组织机构在2022年的表现"
 
 print(f"测试查询: {query}\n")
 print("=" * 80)

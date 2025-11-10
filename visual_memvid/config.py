@@ -82,7 +82,7 @@ CONFIG = {
     # API Keys configuration
     "api_keys": {
         "deepseek": "",  # DeepSeek 官方 API Key
-        "openrouter": "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",  # OpenRouter API Key
+        "openrouter": "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",  # OpenRouter API Key
         "dify": "",  # Dify API Key
     },
 }

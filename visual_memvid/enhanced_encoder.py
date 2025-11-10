@@ -347,95 +347,49 @@ class EnhancedPDFEncoder(VisualMemvidEncoder):
                         print(f"   ✅ JSON 解析成功！", flush=True)
                         logger.info(f"   ✅ JSON 解析成功")
 
-                        # 提取字段
+                        # 提取字段（新结构：删除 summary 和 key_words）
                         page_type = rich_summary.get("page_type", "未知")
-                        page_summary = rich_summary.get("summary", "")
-                        key_words = rich_summary.get("key_words", [])
+                        page_summary = rich_summary.get("page_summary", "")  # 使用 page_summary 而不是 summary
                         entities = rich_summary.get("entities", [])
                         key_data = rich_summary.get("key_data", [])
                         table_info = rich_summary.get("table_info")
                         chart_info = rich_summary.get("chart_info")
                         image_info = rich_summary.get("image_info")
 
-                        # 构建完整的 Summary 文本（用于 BM25S 检索）
-                        summary_for_search = f"页面类型: {page_type}\n\n"
-                        summary_for_search += f"页面摘要:\n{page_summary}\n\n"
-
-                        if key_words:
-                            summary_for_search += f"关键词: {', '.join(key_words)}\n\n"
-
-                        if entities:
-                            summary_for_search += f"关键实体: {', '.join(entities)}\n\n"
-
-                        if key_data:
-                            summary_for_search += "关键数据:\n"
-                            for item in key_data:
-                                summary_for_search += f"  - {item.get('key', '')}: {item.get('value', '')}\n"
-                            summary_for_search += "\n"
-
-                        if table_info:
-                            summary_for_search += f"表格信息:\n"
-                            summary_for_search += f"  标题: {table_info.get('title', '')}\n"
-                            summary_for_search += f"  列名: {', '.join(table_info.get('columns', []))}\n"
-                            summary_for_search += f"  数据: {table_info.get('rows_data', '')}\n\n"
-
-                        if chart_info:
-                            summary_for_search += f"图表信息:\n"
-                            summary_for_search += f"  标题: {chart_info.get('title', '')}\n"
-                            summary_for_search += f"  类型: {chart_info.get('type', '')}\n"
-                            summary_for_search += f"  数据: {chart_info.get('data', '')}\n\n"
-
-                        if image_info:
-                            summary_for_search += f"图像信息:\n"
-                            summary_for_search += f"  描述: {image_info.get('description', '')}\n"
-                            summary_for_search += f"  关键元素: {', '.join(image_info.get('key_elements', []))}\n\n"
-
-                        print(f"   📄 解析后的 Summary:\n{'-'*60}\n{summary_for_search}\n{'-'*60}", flush=True)
-                        logger.info(f"   📄 解析后的 Summary 长度: {len(summary_for_search)}")
+                        print(f"   📄 解析后的 Summary:\n{'-'*60}\n{page_summary}\n{'-'*60}", flush=True)
+                        logger.info(f"   📄 page_summary 长度: {len(page_summary)}")
 
                     except json.JSONDecodeError as e:
                         # JSON 解析失败，使用原始文本
                         logger.warning(f"   ⚠️ JSON 解析失败: {e}，使用原始文本")
                         print(f"   ⚠️ JSON 解析失败: {e}，使用原始文本", flush=True)
-                        summary_for_search = summary_text
                         page_type = "未知"
                         page_summary = summary_text
-                        key_words = []
                         entities = []
                         key_data = []
                         table_info = None
                         chart_info = None
                         image_info = None
 
-                    # 提取关键词（用于 BM25S）
-                    keywords = self._extract_keywords(summary_for_search)
-                    logger.debug(f"   🔑 提取关键词: {len(keywords)} 个")
-
                     # 检测特殊内容
                     has_table = table_info is not None
-                    has_formula = "公式" in summary_for_search or "formula" in summary_for_search.lower()
+                    has_formula = "公式" in page_summary or "formula" in page_summary.lower()
                     has_chart = chart_info is not None
                     logger.debug(f"   📊 内容检测: 表格={has_table}, 公式={has_formula}, 图表={has_chart}")
 
-                    # 保存完整的 Rich Summary
+                    # 保存简化的 Rich Summary（删除 summary, key_words, keywords, has_* 字段）
                     summary = {
                         "doc_id": doc_id,
                         "doc_name": doc_name,
                         "page_num": page_num,
                         "frame_num": frame_num,
-                        "summary": summary_for_search,  # 用于 BM25S 检索的完整文本
                         "page_type": page_type,
                         "page_summary": page_summary,
-                        "key_words": key_words,
                         "entities": entities,
                         "key_data": key_data,
                         "table_info": table_info,
                         "chart_info": chart_info,
                         "image_info": image_info,
-                        "keywords": keywords,  # BM25S 关键词
-                        "has_table": has_table,
-                        "has_formula": has_formula,
-                        "has_chart": has_chart,
                         "processing_time": result.get("processing_time", 0)
                     }
 
@@ -463,41 +417,7 @@ class EnhancedPDFEncoder(VisualMemvidEncoder):
         logger.info(f"✅ 成功生成 {len(summaries)}/{total_pages} 页的 Summary")
         return summaries
     
-    def _extract_keywords(self, text: str) -> List[str]:
-        """
-        从文本中提取关键词
-        
-        简单实现：
-        1. 提取数字（如 "614"）
-        2. 提取长词（>= 3 个字符）
-        
-        Args:
-            text: 文本
-        
-        Returns:
-            关键词列表
-        """
-        import re
-        
-        keywords = []
-        
-        # 提取数字
-        numbers = re.findall(r'\d+', text)
-        keywords.extend(numbers[:5])  # 最多 5 个数字
-        
-        # 提取中文词（简单分词：连续的中文字符）
-        chinese_words = re.findall(r'[\u4e00-\u9fa5]{3,}', text)
-        keywords.extend(chinese_words[:10])  # 最多 10 个中文词
-        
-        # 提取英文词
-        english_words = re.findall(r'[a-zA-Z]{4,}', text)
-        keywords.extend(english_words[:5])  # 最多 5 个英文词
-        
-        # 去重
-        keywords = list(set(keywords))
-        
-        return keywords[:20]  # 最多 20 个关键词
-    
+
     def _store_to_doris(self, summaries: List[Dict]):
         """
         存储 Summary 到 Doris
