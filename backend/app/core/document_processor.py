@@ -167,12 +167,6 @@ class DocumentProcessor:
                 import shutil
                 shutil.rmtree(summary_dir)
 
-            # Delete index directory (BM25S 索引是目录，不是单个文件)
-            index_path = self.settings.indexes_dir / f"{doc_id}_index"
-            if index_path.exists():
-                import shutil
-                shutil.rmtree(index_path)
-
             # Delete cache
             cache_dir = self.settings.cache_dir / doc_id
             if cache_dir.exists():

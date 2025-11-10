@@ -145,45 +145,37 @@ class EnhancedPDFEncoder(VisualMemvidEncoder):
         print(f"📁 创建输出目录...", flush=True)
         output_dir_path = Path(output_dir)
         videos_dir = output_dir_path / "videos"
-        indexes_dir = output_dir_path / "indexes"
         videos_dir.mkdir(parents=True, exist_ok=True)
-        indexes_dir.mkdir(parents=True, exist_ok=True)
         logger.info(f"📁 输出目录已创建: {output_dir_path}")
 
-        # 生成视频和索引文件路径（按doc_id命名）
+        # 生成视频文件路径（按doc_id命名）
         print(f"🎬 生成视频文件路径...", flush=True)
         video_path = videos_dir / f"{doc_id}.mp4"
-        # BM25S 索引需要保存到目录，而不是单个 JSON 文件
-        index_path = indexes_dir / f"{doc_id}_index"
         logger.info(f"🎬 视频输出路径: {video_path}")
-        logger.info(f"📋 索引输出路径: {index_path}")
 
         print(f"🎥 准备调用 build_video()...", flush=True)
         logger.info(f"🎥 开始构建视频...")
-        result = self.build_video(str(video_path), str(index_path))
+        # 不再生成 BM25S 索引，只生成视频
+        result = self.build_video(str(video_path), index_path=None)
         print(f"✅ build_video() 返回成功！", flush=True)
 
         # 保持我们设置的正确路径，不使用 build_video 返回的路径
-        # video_path 和 index_path 已经在前面设置好了
-        print(f"📊 使用预设路径: video={video_path}, index={index_path}", flush=True)
+        print(f"📊 使用预设路径: video={video_path}", flush=True)
 
         print(f"⏱️ 计算编码时间...", flush=True)
         encode_time = time.time() - start_time
         print(f"⏱️ 编码时间: {encode_time:.1f} 秒", flush=True)
 
-        print(f"📝 准备记录日志 1...", flush=True)
+        print(f"📝 准备记录日志...", flush=True)
         logger.info(f"✅ 视频编码完成: {encode_time:.1f} 秒")
-        print(f"📝 日志 1 完成", flush=True)
-
         logger.info(f"   视频文件: {video_path}")
-        print(f"📝 日志 2 完成", flush=True)
-
-        logger.info(f"   索引文件: {index_path}")
-        print(f"📝 日志 3 完成", flush=True)
+        print(f"📝 日志完成", flush=True)
 
         # Phase 2: 生成 Summary（如果启用）
         print(f"🔄 进入 Phase 2...", flush=True)
         summaries = []
+        summary_path = None
+
         if self.enable_summary:
             print(f"✅ Summary 已启用", flush=True)
             logger.info("=" * 60)
@@ -194,22 +186,58 @@ class EnhancedPDFEncoder(VisualMemvidEncoder):
 
             start_time = time.time()
 
-            summaries = self._generate_summaries(
-                doc_id=doc_id,
-                doc_name=pdf_path.name
-            )
+            try:
+                summaries = self._generate_summaries(
+                    doc_id=doc_id,
+                    doc_name=pdf_path.name
+                )
 
-            summary_time = time.time() - start_time
-            logger.info(f"✅ Summary 生成完成: {summary_time:.1f} 秒")
-            logger.info(f"   成功生成: {len(summaries)} 个 Summary")
+                # 检查是否生成了足够的 summaries
+                if len(summaries) == 0:
+                    raise ValueError("Summary 生成失败：没有生成任何 Summary")
 
-            # 保存 Summary 到 JSON（按文档ID分文件夹）
-            summary_dir = Path(output_dir) / "summaries" / doc_id
-            summary_dir.mkdir(parents=True, exist_ok=True)
-            summary_path = summary_dir / "summaries.json"
-            with open(summary_path, "w", encoding="utf-8") as f:
-                json.dump(summaries, f, ensure_ascii=False, indent=2)
-            logger.info(f"💾 Summary 已保存: {summary_path}")
+                summary_time = time.time() - start_time
+                logger.info(f"✅ Summary 生成完成: {summary_time:.1f} 秒")
+                logger.info(f"   成功生成: {len(summaries)} 个 Summary")
+
+                # 保存 Summary 到 JSON（按文档ID分文件夹）
+                summary_dir = Path(output_dir) / "summaries" / doc_id
+                summary_dir.mkdir(parents=True, exist_ok=True)
+                summary_path = summary_dir / "summaries.json"
+                with open(summary_path, "w", encoding="utf-8") as f:
+                    json.dump(summaries, f, ensure_ascii=False, indent=2)
+                logger.info(f"💾 Summary 已保存: {summary_path}")
+
+            except Exception as e:
+                logger.error(f"❌ Summary 生成失败: {e}")
+                logger.error(f"🗑️ 清理已生成的文件...")
+
+                # 清理已生成的 PDF、视频文件
+                try:
+                    # 删除 PDF 文件
+                    pdf_file = Path(output_dir) / "documents" / f"{doc_id}.pdf"
+                    if pdf_file.exists():
+                        pdf_file.unlink()
+                        logger.info(f"   ✅ 已删除 PDF: {pdf_file}")
+
+                    # 删除视频文件
+                    if video_path.exists():
+                        video_path.unlink()
+                        logger.info(f"   ✅ 已删除视频: {video_path}")
+
+                    # 删除 Summary 文件夹（如果存在）
+                    summary_dir = Path(output_dir) / "summaries" / doc_id
+                    if summary_dir.exists():
+                        import shutil
+                        shutil.rmtree(summary_dir)
+                        logger.info(f"   ✅ 已删除 Summary 文件夹: {summary_dir}")
+
+                    logger.info(f"✅ 清理完成")
+                except Exception as cleanup_error:
+                    logger.error(f"⚠️ 清理文件时出错: {cleanup_error}")
+
+                # 重新抛出异常
+                raise ValueError(f"Summary 生成失败: {e}")
         else:
             logger.info("⏭️  跳过 Phase 2: Summary 生成已禁用")
         
@@ -224,19 +252,19 @@ class EnhancedPDFEncoder(VisualMemvidEncoder):
             logger.info(f"✅ Doris 存储完成: {doris_time:.1f} 秒")
         
         # 返回结果
-        summary_path = str(Path(output_dir) / "summaries" / doc_id / "summaries.json") if self.enable_summary and summaries else None
+        summary_path_str = str(summary_path) if summary_path else None
         result = {
             "doc_id": doc_id,
             "doc_name": pdf_path.name,
             "video_path": str(video_path),
-            "index_path": str(index_path),
-            "summary_path": summary_path,
+            "index_path": None,  # 不再生成 BM25S 索引
+            "summary_path": summary_path_str,
             "total_pages": self.total_pages,
             "summaries": summaries,
             "enable_summary": self.enable_summary,
             "enable_doris": self.enable_doris,
         }
-        
+
         logger.info(f"🎉 编码完成: {pdf_path.name}")
         return result
     

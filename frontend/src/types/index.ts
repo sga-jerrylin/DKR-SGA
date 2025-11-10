@@ -52,11 +52,20 @@ export interface SourceReference {
   relevance_score: number
 }
 
+// 执行步骤
+export interface ExecutionStep {
+  step: number
+  type: 'user' | 'tool_call' | 'tool_result' | 'ai_response'
+  tool_name?: string
+  tool_args?: any
+  content?: string
+}
+
 // 查询响应
 export interface QueryResponse {
   success: boolean
   answer?: string
-  agent_steps?: Array<{ type: string; content: string }>
+  execution_steps?: ExecutionStep[]
   processing_time: number
   error?: string
 }

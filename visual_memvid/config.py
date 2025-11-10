@@ -1,6 +1,16 @@
 """
 Configuration for Visual-Memvid
+
+配置规范请参考: PROJECT_RULES.md
 """
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+# 加载根目录的 .env 文件
+project_root = Path(__file__).parent.parent
+env_path = project_root / ".env"
+load_dotenv(dotenv_path=env_path)
 
 CONFIG = {
     # PDF rendering settings
@@ -23,8 +33,8 @@ CONFIG = {
 
     # OCR settings - 全页OCR（Layer 3）
     "ocr": {
-        "provider": "deepseek_ocr",  # deepseek_ocr, gemini, openrouter, dify
-        "endpoint": "http://111.230.37.43:5010",  # DeepSeek OCR 服务地址
+        "provider": os.getenv("OCR_MODEL_PROVIDER", "deepseek_ocr"),  # 从环境变量读取
+        "endpoint": os.getenv("OCR_API_URL", "http://111.230.37.43:5010"),  # 从环境变量读取
         "batch_size": 5,  # 批量处理大小
         "prompt_file": "prompts/full_page_ocr_markdown.txt",  # 提示词文件路径
         "base_size": 4096,  # 极限配置：4096 支持超高分辨率图像
@@ -65,25 +75,26 @@ CONFIG = {
 
     # Summary generation settings - Summary生成（Layer 2）
     "summary": {
-        "provider": "gemini",  # gemini, qwen, grok, deepseek_chat, openrouter, dify
-        "model": "google/gemini-2.5-flash-preview-09-2025",  # Grok-4-Fast 模型（可选：google/gemini-2.5-flash-preview-09-2025, qwen/qwen3-vl-235b-a22b-instruct）
+        "provider": os.getenv("SUMMARY_MODEL_PROVIDER", "gemini"),  # 从环境变量读取
+        "model": os.getenv("SUMMARY_MODEL_NAME", "google/gemini-2.5-flash-preview-09-2025"),  # 从环境变量读取
         "prompt_file": "prompts/summary_rich_json.txt",  # 提示词文件路径
         "enabled": True,  # 是否生成 Summary
     },
 
     # AI Agent settings - 总调度智能体（LangGraph）
     "agent": {
-        "provider": "deepseek_chat",  # deepseek_chat, openrouter, dify
-        "model": "deepseek-chat",  # 模型名称
+        "provider": os.getenv("AGENT_LLM_PROVIDER", "deepseek"),  # 从环境变量读取
+        "model": os.getenv("AGENT_LLM_MODEL", "deepseek-chat"),  # 从环境变量读取
         "temperature": 0.1,
         "max_tokens": 4000,
     },
 
-    # API Keys configuration
+    # API Keys configuration - 从环境变量读取
     "api_keys": {
-        "deepseek": "",  # DeepSeek 官方 API Key
-        "openrouter": "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",  # OpenRouter API Key
-        "dify": "",  # Dify API Key
+        "deepseek": os.getenv("DEEPSEEK_API_KEY", ""),  # DeepSeek 官方 API Key
+        "openrouter": os.getenv("OPENROUTER_API_KEY", ""),  # OpenRouter API Key
+        "kimi": os.getenv("KIMI_API_KEY", ""),  # Kimi API Key（预留）
+        "minimax": os.getenv("MINIMAX_API_KEY", ""),  # MiniMax API Key（预留）
     },
 }
 

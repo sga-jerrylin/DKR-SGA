@@ -5,12 +5,9 @@ from fastapi import APIRouter, HTTPException
 from loguru import logger
 
 from app.models.query import QueryRequest, QueryResponse
-from app.agent.dkr_agent import DKRAgent
+from app.api.agent import get_agent
 
 router = APIRouter(prefix="/query", tags=["query"])
-
-# 全局 Agent 实例
-agent = DKRAgent()
 
 
 @router.post("/", response_model=QueryResponse)
@@ -34,22 +31,22 @@ async def query_documents(request: QueryRequest):
     """
     try:
         logger.info(f"收到查询请求: {request.query}")
-        
-        # 调用 LangGraph Agent（自主循环）
-        result = await agent.ask(
-            query=request.query,
-            thread_id=request.options.get("thread_id", "default") if request.options else "default"
-        )
-        
+
+        # 调用 LangGraph Agent（自主循环，无状态）
+        agent = get_agent()  # 获取 Agent 实例
+        result = await agent.ask(query=request.query)
+
         if not result["success"]:
-            raise HTTPException(status_code=500, detail=result.get("error", "查询失败"))
-        
+            error_msg = result.get("error", "查询失败")
+            logger.error(f"Agent 返回失败: {error_msg}")
+            raise HTTPException(status_code=500, detail=error_msg)
+
         logger.info(f"查询成功，耗时 {result['processing_time']:.2f}s")
-        
+
         return QueryResponse(
             success=True,
             answer=result["answer"],
-            agent_steps=result.get("agent_steps", []),
+            execution_steps=result.get("execution_steps", []),
             processing_time=result["processing_time"]
         )
     

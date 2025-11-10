@@ -49,11 +49,66 @@ async def get_document(doc_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/upload/batch")
+async def upload_documents_batch(files: List[UploadFile] = File(...)):
+    """
+    批量上传文档
+
+    Args:
+        files: 多个 PDF 文件
+
+    Returns:
+        批量上传结果
+    """
+    results = []
+
+    for file in files:
+        try:
+            # 验证文件类型
+            if not file.filename.endswith('.pdf'):
+                results.append({
+                    "filename": file.filename,
+                    "success": False,
+                    "error": "只支持 PDF 文件"
+                })
+                continue
+
+            # 调用单文件上传逻辑
+            result = await _process_single_upload(file)
+            results.append({
+                "filename": file.filename,
+                "success": result["success"],
+                "doc_id": result.get("doc_id"),
+                "category": result.get("category"),
+                "error": result.get("error")
+            })
+
+        except Exception as e:
+            logger.error(f"处理文件 {file.filename} 失败: {e}")
+            results.append({
+                "filename": file.filename,
+                "success": False,
+                "error": str(e)
+            })
+
+    # 统计结果
+    success_count = sum(1 for r in results if r["success"])
+    total_count = len(results)
+
+    return {
+        "success": success_count > 0,
+        "total": total_count,
+        "success_count": success_count,
+        "failed_count": total_count - success_count,
+        "results": results
+    }
+
+
 @router.post("/upload", response_model=DocumentUploadResponse)
 async def upload_document(file: UploadFile = File(...)):
     """
-    上传文档（Agent-First：自动分类）
-    
+    上传单个文档（Agent-First：自动分类）
+
     工作流程：
     1. 保存上传的 PDF
     2. 处理文档（PDF → Video + Summary）
@@ -64,7 +119,34 @@ async def upload_document(file: UploadFile = File(...)):
         # 验证文件类型
         if not file.filename.endswith('.pdf'):
             raise HTTPException(status_code=400, detail="只支持 PDF 文件")
-        
+
+        result = await _process_single_upload(file)
+
+        if not result["success"]:
+            raise HTTPException(status_code=500, detail=result.get("error", "上传失败"))
+
+        return DocumentUploadResponse(
+            success=True,
+            doc_id=result["doc_id"],
+            category=result["category"],
+            message=f"文档已成功上传并分类到 '{result['category']}'"
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"上传文档失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+async def _process_single_upload(file: UploadFile) -> dict:
+    """
+    处理单个文件上传（内部方法）
+
+    Returns:
+        上传结果字典
+    """
+    try:
         logger.info(f"开始处理上传文档: {file.filename}")
         
         # 生成文档 ID
@@ -123,7 +205,6 @@ async def upload_document(file: UploadFile = File(...)):
             "file_path": str(pdf_path),
             "video_path": process_result.get("video_path"),
             "summary_path": process_result.get("summary_path"),
-            "index_path": process_result.get("index_path"),
             "page_count": process_result.get("page_count", 0),
             "doc_summary": doc_summary,  # 文档级别的 Summary
             "keywords": process_result.get("keywords", []),
@@ -137,21 +218,22 @@ async def upload_document(file: UploadFile = File(...)):
             category_confidence=classify_result.get('confidence', 0.0),
             metadata=metadata
         )
-        
+
         logger.info(f"文档上传成功: {doc_id}")
-        
-        return DocumentUploadResponse(
-            success=True,
-            doc_id=doc_id,
-            category=category,
-            message=f"文档已成功上传并分类到 '{category}'"
-        )
-    
-    except HTTPException:
-        raise
+
+        return {
+            "success": True,
+            "doc_id": doc_id,
+            "category": category,
+            "message": f"文档已成功上传并分类到 '{category}'"
+        }
+
     except Exception as e:
         logger.error(f"上传文档失败: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        return {
+            "success": False,
+            "error": str(e)
+        }
 
 
 @router.delete("/{doc_id}")

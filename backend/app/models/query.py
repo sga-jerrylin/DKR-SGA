@@ -35,7 +35,7 @@ class QueryResponse(BaseModel):
     """查询响应"""
     success: bool
     answer: Optional[str] = None
-    agent_steps: Optional[List[Dict[str, Any]]] = None
+    execution_steps: Optional[List[Dict[str, Any]]] = None
     processing_time: float
     error: Optional[str] = None
 

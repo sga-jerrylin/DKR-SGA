@@ -1,5 +1,0 @@
-Traceback (most recent call last):
-  File "E:\memvid-deepseekocr\test_agent.py", line 14, in <module>
-    print(f"\U0001f50d ≤‚ ‘≤È—Ø: {query}\n")
-    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
-UnicodeEncodeError: 'gbk' codec can't encode character '\U0001f50d' in position 0: illegal multibyte sequence

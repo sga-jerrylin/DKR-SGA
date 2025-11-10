@@ -14,15 +14,15 @@ httpx==0.26.0
 requests==2.31.0
 
 # LLM & Agent Framework
-openai==1.10.0
+openai>=1.54.0,<2.0.0
 langgraph==0.2.50
 langchain==0.3.10
 langchain-openai==0.2.10
-langchain-core==0.3.20
+langchain-core>=0.3.22,<0.4.0
 
 # Data Validation
-# pydantic==2.5.3  # 使用已安装的 2.11.7
-# pydantic-settings==2.1.0  # 使用已安装的 2.6.1
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
 
 # JSON Processing
 # orjson==3.9.12  # 编译太慢，暂时禁用

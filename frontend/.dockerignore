@@ -1,0 +1,38 @@
+# Dependencies
+node_modules
+npm-debug.log
+yarn-error.log
+yarn-debug.log
+.pnpm-debug.log
+.npm
+
+# Build output (保留 dist 用于 Docker)
+# dist  # 注释掉，因为 Docker 需要使用预构建的 dist
+dist-ssr
+*.local
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Git
+.git
+.gitignore
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Testing
+coverage
+.nyc_output
+
+# Misc
+*.log
+.cache
+

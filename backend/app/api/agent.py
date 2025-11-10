@@ -9,9 +9,25 @@ from app.core.library_manager import LibraryManager
 
 router = APIRouter(prefix="/agent", tags=["agent"])
 
-# 全局实例
-agent = DKRAgent()
+# 全局实例（延迟初始化）
+_agent_instance = None
 library_manager = LibraryManager()
+
+
+def get_agent() -> DKRAgent:
+    """获取 Agent 实例（单例模式，支持重置）"""
+    global _agent_instance
+    if _agent_instance is None:
+        logger.info("🔧 初始化 DKR Agent 实例")
+        _agent_instance = DKRAgent()
+    return _agent_instance
+
+
+def reset_agent():
+    """重置 Agent 实例（用于配置更新后重新初始化）"""
+    global _agent_instance
+    logger.info("🔄 重置 DKR Agent 实例")
+    _agent_instance = None
 
 
 @router.post("/ask")
@@ -28,7 +44,10 @@ async def agent_ask(query: str):
     try:
         logger.info(f"[External Agent] 收到查询: {query}")
 
+        logger.info("[External Agent] 准备调用 agent.ask()")
+        agent = get_agent()  # 获取 Agent 实例
         result = await agent.ask(query=query)
+        logger.info(f"[External Agent] agent.ask() 返回成功，类型: {type(result)}")
 
         # 安全检查 result 是否为字典
         if not isinstance(result, dict):

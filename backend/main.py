@@ -16,7 +16,7 @@ from loguru import logger
 load_dotenv()
 
 # Import routers
-from app.api import documents, query, agent
+from app.api import documents, query, agent, settings
 from app.api import config as config_api
 
 # Configure logger
@@ -125,6 +125,7 @@ app.include_router(documents.router)
 app.include_router(query.router)
 app.include_router(agent.router)
 app.include_router(config_api.router)
+app.include_router(settings.router)
 
 
 # Global exception handler

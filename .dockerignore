@@ -1,0 +1,73 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info
+dist
+build
+*.egg
+.pytest_cache
+.coverage
+htmlcov
+
+# Virtual environments
+venv
+env
+ENV
+.venv
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Node.js (for frontend)
+node_modules
+npm-debug.log
+yarn-error.log
+.npm
+
+# Data directories (will be mounted as volumes)
+data/*
+!data/.gitkeep
+ocr_cache/*
+!ocr_cache/.gitkeep
+logs/*
+!logs/.gitkeep
+
+# Documentation
+doc
+*.md
+!README.md
+
+# Examples
+examples
+
+# Docker
+docker-compose*.yml
+Dockerfile
+.dockerignore
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Temporary files
+*.tmp
+*.temp
+.cache
+
+# OS
+Thumbs.db
+

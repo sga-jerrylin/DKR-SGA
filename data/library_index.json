@@ -1,0 +1,65 @@
+{
+  "categories": {
+    "年度调研报告": {
+      "name": "年度调研报告",
+      "documents": {
+        "doc_20251110_211131_7d86063b": {
+          "doc_id": "doc_20251110_211131_7d86063b",
+          "title": "2022中国环保公益组织现状调研报告",
+          "category_confidence": 0.9,
+          "metadata": {
+            "filename": "2022中国环保公益组织现状调研报告.pdf",
+            "file_path": "E:\\memvid-deepseekocr\\data\\documents\\doc_20251110_211131_7d86063b.pdf",
+            "video_path": "E:\\memvid-deepseekocr\\data\\videos\\doc_20251110_211131_7d86063b.mp4",
+            "summary_path": "E:\\memvid-deepseekocr\\data\\summaries\\doc_20251110_211131_7d86063b\\summaries.json",
+            "page_count": 81,
+            "doc_summary": "\n\n\n\n",
+            "keywords": [],
+            "upload_time": "2025-11-10T21:28:32.756238"
+          },
+          "created_at": "2025-11-10T21:28:32.756526",
+          "updated_at": "2025-11-10T21:28:32.756531"
+        },
+        "doc_20251110_212907_8c247319": {
+          "doc_id": "doc_20251110_212907_8c247319",
+          "title": "2023中国环保公益组织现状调研报告",
+          "category_confidence": 0.9,
+          "metadata": {
+            "filename": "2023中国环保公益组织现状调研报告.pdf",
+            "file_path": "E:\\memvid-deepseekocr\\data\\documents\\doc_20251110_212907_8c247319.pdf",
+            "video_path": "E:\\memvid-deepseekocr\\data\\videos\\doc_20251110_212907_8c247319.mp4",
+            "summary_path": "E:\\memvid-deepseekocr\\data\\summaries\\doc_20251110_212907_8c247319\\summaries.json",
+            "page_count": 62,
+            "doc_summary": "\n\n\n\n",
+            "keywords": [],
+            "upload_time": "2025-11-10T21:43:28.084973"
+          },
+          "created_at": "2025-11-10T21:43:28.085306",
+          "updated_at": "2025-11-10T21:43:28.085312"
+        },
+        "doc_20251110_214328_9d6cd7fb": {
+          "doc_id": "doc_20251110_214328_9d6cd7fb",
+          "title": "2024中国环保公益组织现状调研报告",
+          "category_confidence": 0.9,
+          "metadata": {
+            "filename": "2024中国环保公益组织现状调研报告.pdf",
+            "file_path": "E:\\memvid-deepseekocr\\data\\documents\\doc_20251110_214328_9d6cd7fb.pdf",
+            "video_path": "E:\\memvid-deepseekocr\\data\\videos\\doc_20251110_214328_9d6cd7fb.mp4",
+            "summary_path": "E:\\memvid-deepseekocr\\data\\summaries\\doc_20251110_214328_9d6cd7fb\\summaries.json",
+            "page_count": 97,
+            "doc_summary": "\n\n\n\n",
+            "keywords": [],
+            "upload_time": "2025-11-10T22:03:06.597695"
+          },
+          "created_at": "2025-11-10T22:03:06.598002",
+          "updated_at": "2025-11-10T22:03:06.598008"
+        }
+      },
+      "document_count": 3
+    }
+  },
+  "updated_at": "2025-11-10T22:03:06.598020",
+  "created_at": "2025-11-10T21:08:45.9247771+08:00",
+  "version": "1.0",
+  "total_documents": 3
+}

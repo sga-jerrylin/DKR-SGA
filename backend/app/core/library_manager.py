@@ -93,41 +93,104 @@ class LibraryManager:
             logger.error(f"添加文档到索引失败: {e}")
             return False
     
-    def remove_document(self, doc_id: str) -> bool:
+    def delete_document(self, doc_id: str) -> bool:
         """
-        从索引中移除文档
-        
+        完全删除文档（包括所有相关文件）
+
         Args:
             doc_id: 文档 ID
-        
+
+        Returns:
+            是否成功
+        """
+        try:
+            import os
+
+            # 1. 获取文档信息
+            doc_info = self.get_document(doc_id)
+            if not doc_info:
+                logger.warning(f"文档不存在: {doc_id}")
+                return False
+
+            metadata = doc_info.get("metadata", {})
+
+            # 2. 删除所有相关文件
+            files_to_delete = []
+
+            # PDF 文件
+            if "file_path" in metadata:
+                files_to_delete.append(metadata["file_path"])
+
+            # 视频文件
+            if "video_path" in metadata:
+                files_to_delete.append(metadata["video_path"])
+
+            # Summary 文件
+            if "summary_path" in metadata:
+                files_to_delete.append(metadata["summary_path"])
+
+            # 索引文件
+            if "index_path" in metadata:
+                files_to_delete.append(metadata["index_path"])
+
+            # 删除文件
+            deleted_files = []
+            for file_path in files_to_delete:
+                if file_path and os.path.exists(file_path):
+                    try:
+                        os.remove(file_path)
+                        deleted_files.append(file_path)
+                        logger.info(f"已删除文件: {file_path}")
+                    except Exception as e:
+                        logger.error(f"删除文件失败 {file_path}: {e}")
+
+            # 3. 从索引中移除
+            success = self.remove_document(doc_id)
+
+            if success:
+                logger.info(f"文档完全删除成功: {doc_id}, 删除了 {len(deleted_files)} 个文件")
+
+            return success
+
+        except Exception as e:
+            logger.error(f"删除文档失败: {e}", exc_info=True)
+            return False
+
+    def remove_document(self, doc_id: str) -> bool:
+        """
+        从索引中移除文档（不删除文件）
+
+        Args:
+            doc_id: 文档 ID
+
         Returns:
             是否成功
         """
         try:
             index = self.get_index()
-            
+
             # Find and remove document
             for category_name, category_data in index["categories"].items():
                 if doc_id in category_data["documents"]:
                     del category_data["documents"][doc_id]
                     category_data["document_count"] = len(category_data["documents"])
-                    
+
                     # Remove empty category
                     if category_data["document_count"] == 0:
                         del index["categories"][category_name]
-                    
+
                     break
-            
+
             # Update total count
             index["total_documents"] = sum(
                 cat["document_count"] for cat in index["categories"].values()
             )
             index["updated_at"] = datetime.now().isoformat()
-            
+
             save_json(index, self.index_path)
             logger.info(f"文档已从索引移除: {doc_id}")
             return True
-        
+
         except Exception as e:
             logger.error(f"从索引移除文档失败: {e}")
             return False

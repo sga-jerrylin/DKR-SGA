@@ -98,7 +98,7 @@ const loadDocuments = async () => {
   loading.value = true
   try {
     const response = await api.documents.list()
-    documents.value = response
+    documents.value = response as any
   } catch (error: any) {
     ElMessage.error('加载文档列表失败：' + error.message)
   } finally {
@@ -106,7 +106,7 @@ const loadDocuments = async () => {
   }
 }
 
-const viewDocument = (doc: Document) => {
+const viewDocument = (_doc: Document) => {
   ElMessage.info('文档查看功能开发中...')
 }
 

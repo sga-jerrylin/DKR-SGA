@@ -16,6 +16,8 @@ ffmpeg-python>=0.2.0
 # Utilities
 tqdm>=4.66.0
 python-dotenv>=1.0.0
+bm25s>=0.1.0  # BM25 search index
+jieba>=0.42.0  # Chinese text segmentation
 
 # Optional: LLM for smart retrieval
 openai>=1.0.0  # For GPT-4 or DeepSeek API

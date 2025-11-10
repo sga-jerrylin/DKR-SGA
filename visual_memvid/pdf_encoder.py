@@ -190,7 +190,7 @@ class VisualMemvidEncoder:
 
         Args:
             output_path: 输出视频路径
-            index_path: 索引保存路径（BM25S 索引目录，默认与视频同名）
+            index_path: 索引保存路径（已废弃，不再生成 BM25S 索引）
             codec: 编解码器（h265, h264, av1）
 
         Returns:
@@ -202,33 +202,25 @@ class VisualMemvidEncoder:
         codec = codec or self.config["video"]["codec"]
         output_path = Path(output_path)
 
-        # 默认索引路径（BM25S 需要目录，不是单个文件）
-        if index_path is None:
-            index_path = output_path.with_suffix('')  # 移除 .mp4 后缀，作为目录名
-        
         logger.info(f"🎬 开始构建视频: {output_path}")
 
         # 使用 FFmpeg 编码（复用 Memvid 逻辑）
         self._build_video_with_ffmpeg(self.frames_dir, output_path, codec)
 
-        # 构建 BM25S 索引
-        logger.info(f"📊 开始构建 BM25S 索引...")
-        self.index.build_index()
+        # 不再生成 BM25S 索引（已废弃）
+        logger.info(f"⏭️  跳过 BM25S 索引生成（已废弃）")
 
-        # 保存索引
-        self.index.save(str(index_path))
-        
         # 清理临时帧目录
         # shutil.rmtree(self.frames_dir)
         # logger.info(f"🗑️ 已清理临时帧目录")
-        
+
         stats = {
             "video_path": str(output_path),
-            "index_path": str(index_path),
+            "index_path": None,  # 不再生成索引
             "total_pages": self.total_pages,
             "codec": codec,
         }
-        
+
         logger.info(f"✅ 视频构建完成: {output_path}")
         return stats
     

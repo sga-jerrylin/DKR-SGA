@@ -137,8 +137,10 @@ def get_documents_table_of_contents(doc_ids: list, query: str = "") -> str:
         sys.path.insert(0, str(project_root))
 
         from app.core.library_manager import LibraryManager
+        from app.config import get_settings
 
         library_manager = LibraryManager()
+        settings = get_settings()
 
         result = "【文档目录】\n\n"
 
@@ -157,6 +159,12 @@ def get_documents_table_of_contents(doc_ids: list, query: str = "") -> str:
             if not summary_path:
                 result += f"⚠️ 错误：文档 {doc_id} 缺少 Summary 文件\n\n"
                 continue
+
+            # 转换为绝对路径（如果是相对路径）
+            summary_path = Path(summary_path)
+            if not summary_path.is_absolute():
+                # data 文件夹在项目根目录，所以使用 _project_root
+                summary_path = settings._project_root / summary_path
 
             # 读取 Summary JSON
             with open(summary_path, 'r', encoding='utf-8') as f:
@@ -226,8 +234,10 @@ def get_pages_full_summary(doc_id: str, page_nums: list) -> str:
         sys.path.insert(0, str(project_root))
 
         from app.core.library_manager import LibraryManager
+        from app.config import get_settings
 
         library_manager = LibraryManager()
+        settings = get_settings()
 
         # 获取文档信息
         doc_info = library_manager.get_document(doc_id)
@@ -239,6 +249,12 @@ def get_pages_full_summary(doc_id: str, page_nums: list) -> str:
 
         if not summary_path:
             return f"错误：文档 {doc_id} 缺少 Summary 文件"
+
+        # 转换为绝对路径（如果是相对路径）
+        summary_path = Path(summary_path)
+        if not summary_path.is_absolute():
+            # data 文件夹在项目根目录，所以使用 _project_root
+            summary_path = settings._project_root / summary_path
 
         # 读取 Summary JSON
         with open(summary_path, 'r', encoding='utf-8') as f:
@@ -448,13 +464,29 @@ def search_in_document(doc_id: str, page_nums: list, query: str = "") -> str:
         if not video_path or not index_path:
             return f"错误：文档 {doc_id} 缺少视频或索引文件"
 
+        # 转换为绝对路径（如果是相对路径）
+        video_path = Path(video_path)
+        if not video_path.is_absolute():
+            # data 文件夹在项目根目录，所以使用 _project_root
+            video_path = settings._project_root / video_path
+
+        index_path = Path(index_path)
+        if not index_path.is_absolute():
+            # data 文件夹在项目根目录，所以使用 _project_root
+            index_path = settings._project_root / index_path
+
+        logger.info(f"[Tool] 视频路径: {video_path}")
+        logger.info(f"[Tool] 索引路径: {index_path}")
+        logger.info(f"[Tool] 视频文件存在: {video_path.exists()}")
+        logger.info(f"[Tool] 索引文件存在: {index_path.exists()}")
+
         # 初始化 OCR 客户端和 visual retriever
         ocr_client = DeepSeekOCRClient(endpoint=settings.ocr_api_url)
         logger.info(f"[Tool] 正在调用 DeepSeek OCR API: {settings.ocr_api_url}")
 
         visual_retriever = VisualMemvidRetriever(
-            video_path=video_path,
-            index_path=index_path,
+            video_path=str(video_path),
+            index_path=str(index_path),
             ocr_client=ocr_client,
             enable_cache=True
         )
@@ -571,16 +603,50 @@ class DKRAgent:
         # 初始化全局实例
         _init_globals()
 
-        # 创建 LangChain LLM（根据配置选择 DeepSeek 或 Gemini）
-        if self.settings.agent_llm_provider == "gemini":
+        # 创建 LangChain LLM（根据配置选择不同的模型）
+        if self.settings.agent_llm_provider == "claude":
+            # Claude Haiku 4.5 via OpenRouter
+            logger.info(f"使用 Claude 模型: {self.settings.agent_llm_model}")
+            logger.info(f"OpenRouter Base URL: {self.settings.openrouter_base_url}")
+            self.llm = ChatOpenAI(
+                base_url=self.settings.openrouter_base_url,
+                api_key=self.settings.openrouter_api_key,
+                model=self.settings.agent_llm_model,
+                temperature=0.3,
+                default_headers={
+                    "HTTP-Referer": "https://dkr.sologenai.com",
+                    "X-Title": "DKR - Deep Knowledge Retrieval"
+                }
+            )
+        elif self.settings.agent_llm_provider == "gpt4":
+            # GPT-4.1 via OpenRouter
+            logger.info(f"使用 GPT-4 模型: {self.settings.agent_llm_model}")
+            logger.info(f"OpenRouter Base URL: {self.settings.openrouter_base_url}")
+            self.llm = ChatOpenAI(
+                base_url=self.settings.openrouter_base_url,
+                api_key=self.settings.openrouter_api_key,
+                model=self.settings.agent_llm_model,
+                temperature=0.3,
+                default_headers={
+                    "HTTP-Referer": "https://dkr.sologenai.com",
+                    "X-Title": "DKR - Deep Knowledge Retrieval"
+                }
+            )
+        elif self.settings.agent_llm_provider == "gemini":
+            # Gemini via OpenRouter
             logger.info(f"使用 Gemini 模型: {self.settings.agent_llm_model}")
             self.llm = ChatOpenAI(
                 base_url=self.settings.openrouter_base_url,
                 api_key=self.settings.openrouter_api_key,
                 model=self.settings.agent_llm_model,
-                temperature=0.3
+                temperature=0.3,
+                default_headers={
+                    "HTTP-Referer": "https://dkr.sologenai.com",
+                    "X-Title": "DKR - Deep Knowledge Retrieval"
+                }
             )
         else:
+            # DeepSeek (默认)
             logger.info(f"使用 DeepSeek 模型: {self.settings.deepseek_model}")
             logger.info(f"DeepSeek API Key: {self.settings.deepseek_api_key[:20]}..." if self.settings.deepseek_api_key else "DeepSeek API Key: (空)")
             logger.info(f"DeepSeek Base URL: {self.settings.deepseek_base_url}")
@@ -687,6 +753,9 @@ class DKRAgent:
                     processing_time=(datetime.now() - start_time).total_seconds()
                 )
 
+            # 收集执行步骤（用于前端展示）
+            execution_steps = []
+
             # 日志：记录 Agent 的完整执行过程
             logger.info("\n" + "=" * 80)
             logger.info(f"【Agent 执行过程】共 {len(messages)} 条消息")
@@ -698,6 +767,11 @@ class DKRAgent:
                 if msg_type == 'human':
                     logger.info(f"\n[{i}] 👤 用户消息:")
                     logger.info(f"    {msg.content[:200]}")
+                    execution_steps.append({
+                        "step": i,
+                        "type": "user",
+                        "content": msg.content[:200]
+                    })
 
                 elif msg_type == 'ai':
                     logger.info(f"\n[{i}] 🤖 Agent 思考:")
@@ -708,10 +782,21 @@ class DKRAgent:
                             tool_args = tool_call.get('args', {})
                             logger.info(f"    📞 调用工具: {tool_name}")
                             logger.info(f"    📝 参数: {tool_args}")
+                            execution_steps.append({
+                                "step": i,
+                                "type": "tool_call",
+                                "tool_name": tool_name,
+                                "tool_args": tool_args
+                            })
                     else:
                         # Agent 的最终回答
                         content = msg.content[:500] if hasattr(msg, 'content') else str(msg)[:500]
                         logger.info(f"    💬 回答: {content}")
+                        execution_steps.append({
+                            "step": i,
+                            "type": "ai_response",
+                            "content": content
+                        })
 
                 elif msg_type == 'tool':
                     logger.info(f"\n[{i}] 🔧 工具返回:")
@@ -719,6 +804,12 @@ class DKRAgent:
                     content = msg.content[:300] if hasattr(msg, 'content') else str(msg)[:300]
                     logger.info(f"    工具: {tool_name}")
                     logger.info(f"    结果: {content}...")
+                    execution_steps.append({
+                        "step": i,
+                        "type": "tool_result",
+                        "tool_name": tool_name,
+                        "content": content
+                    })
 
                 else:
                     logger.info(f"\n[{i}] ❓ 未知消息类型: {msg_type}")
@@ -743,12 +834,25 @@ class DKRAgent:
             return self._create_response(
                 success=True,
                 answer=answer,
-                processing_time=processing_time
+                processing_time=processing_time,
+                execution_steps=execution_steps
             )
 
         except Exception as e:
+            import traceback
             error_msg = str(e)
+
+            # 打印完整堆栈跟踪到控制台
+            print("=" * 80)
+            print("EXCEPTION CAUGHT IN DKR AGENT:")
+            print("=" * 80)
+            traceback.print_exc()
+            print("=" * 80)
+
             logger.error(f"Agent 处理失败: {error_msg}", exc_info=True)
+            logger.error(f"异常类型: {type(e)}")
+            logger.error(f"异常详情: {repr(e)}")
+
             processing_time = (datetime.now() - start_time).total_seconds()
             return self._create_response(
                 success=False,
@@ -761,13 +865,15 @@ class DKRAgent:
         success: bool,
         answer: Optional[str] = None,
         processing_time: float = 0.0,
-        error: Optional[str] = None
+        error: Optional[str] = None,
+        execution_steps: Optional[list] = None
     ) -> Dict[str, Any]:
-        """创建响应（只返回最终答案，不返回执行步骤）"""
+        """创建响应（包含最终答案和执行步骤）"""
         return {
             "success": success,
             "answer": answer,
             "processing_time": processing_time,
-            "error": error
+            "error": error,
+            "execution_steps": execution_steps or []
         }
 
