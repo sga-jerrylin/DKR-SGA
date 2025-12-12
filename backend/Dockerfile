@@ -20,8 +20,9 @@ COPY backend/requirements.txt ./backend_requirements.txt
 COPY requirements.txt ./root_requirements.txt
 
 # Install Python dependencies (merge both requirements)
-RUN pip install --no-cache-dir -r root_requirements.txt && \
-    pip install --no-cache-dir -r backend_requirements.txt
+# Use trusted-host to bypass SSL certificate issues
+RUN pip install --no-cache-dir --trusted-host pypi.org --trusted-host files.pythonhosted.org -r root_requirements.txt && \
+    pip install --no-cache-dir --trusted-host pypi.org --trusted-host files.pythonhosted.org -r backend_requirements.txt
 
 # Copy startup script first
 COPY backend/docker-entrypoint.sh /docker-entrypoint.sh

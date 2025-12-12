@@ -46,9 +46,21 @@ class QwenOCRClient:
             # 支持相对路径和绝对路径
             path = Path(prompt_path)
             if not path.is_absolute():
-                # 相对于项目根目录的 backend/prompts/
+                # 尝试多个可能的路径
                 project_root = Path(__file__).parent.parent
-                path = project_root / "backend" / prompt_path
+                possible_paths = [
+                    project_root / "backend" / prompt_path,  # 开发环境
+                    project_root / prompt_path,  # Docker 环境
+                    Path("/app") / prompt_path,  # Docker 绝对路径
+                ]
+
+                for p in possible_paths:
+                    if p.exists():
+                        path = p
+                        break
+                else:
+                    print(f"⚠️ 提示词文件不存在: {prompt_path}")
+                    return ""
 
             if path.exists():
                 return path.read_text(encoding="utf-8")

@@ -12,9 +12,6 @@ import shutil
 from typing import List, Dict, Optional, Tuple
 import logging
 
-# 添加 memvid 到路径
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "memvid"))
-
 import fitz  # PyMuPDF
 import cv2
 import numpy as np
@@ -243,15 +240,9 @@ class VisualMemvidEncoder:
             ffmpeg_exe = 'ffmpeg'
             logger.info(f"⚠️ 使用系统 FFmpeg")
 
-        # 导入 Memvid 配置
-        try:
-            from memvid.config import get_codec_parameters
-            codec_config = get_codec_parameters(codec.lower())
-            logger.info(f"✅ 使用 memvid 配置: {codec_config}")
-        except Exception as e:
-            # 降级到默认配置
-            logger.warning(f"⚠️ 无法加载 memvid 配置: {e}")
-            codec_config = self.config["video"]
+        # 使用默认配置
+        codec_config = self.config["video"]
+        logger.info(f"✅ 使用视频编码配置: codec={codec}, crf={codec_config.get('crf')}, preset={codec_config.get('preset')}")
 
         # FFmpeg 编解码器映射（参考 memvid）
         ffmpeg_codec_map = {

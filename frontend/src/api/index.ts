@@ -10,7 +10,7 @@ export const api = {
 
   // Documents
   documents: {
-    list: () => client.get<Document[]>('/documents'),
+    list: () => client.get<Document[]>('/documents/'),
     upload: (file: File) => {
       const formData = new FormData()
       formData.append('file', file)
